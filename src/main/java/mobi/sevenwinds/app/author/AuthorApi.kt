@@ -6,8 +6,6 @@ import com.papsign.ktor.openapigen.route.path.normal.post
 import com.papsign.ktor.openapigen.route.response.respond
 import com.papsign.ktor.openapigen.route.route
 import org.jetbrains.annotations.NotNull
-import org.joda.time.DateTime
-
 
 fun NormalOpenAPIRoute.author() {
     route("/author") {
@@ -17,7 +15,4 @@ fun NormalOpenAPIRoute.author() {
     }
 }
 
-data class AuthorRecord(
-    @NotNull val fullName: String,
-//    val creationDate: DateTime? = null
-)
+data class AuthorRecord(@NotNull val fullName: String)

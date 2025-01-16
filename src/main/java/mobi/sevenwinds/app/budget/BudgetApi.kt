@@ -48,6 +48,4 @@ class BudgetYearStatsResponse(
     val items: List<BudgetRecord>
 )
 
-enum class BudgetType {
-    Приход, Расход
-}
+enum class BudgetType { Приход, Расход }

@@ -3,11 +3,7 @@ package mobi.sevenwinds.app.budget
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import mobi.sevenwinds.app.author.AuthorEntity
-import mobi.sevenwinds.app.author.AuthorTable
-import org.jetbrains.exposed.sql.JoinType
-import org.jetbrains.exposed.sql.andWhere
-import org.jetbrains.exposed.sql.lowerCase
-import org.jetbrains.exposed.sql.select
+import org.jetbrains.exposed.sql.SortOrder
 import org.jetbrains.exposed.sql.transactions.transaction
 
 object BudgetService {
@@ -23,44 +19,25 @@ object BudgetService {
             entity.toResponse()
         }
     }
+
     suspend fun getYearStats(param: BudgetYearParam): BudgetYearStatsResponse = withContext(Dispatchers.IO) {
-        transaction {
-            val query = BudgetTable
-                .join(AuthorTable, JoinType.LEFT, additionalConstraint = { BudgetTable.authorId eq AuthorTable.id })
-                .select { BudgetTable.year eq param.year }
-
-            if (!param.authorName.isNullOrBlank()) {
-                query.andWhere { AuthorTable.fullName.lowerCase() like "%${param.authorName.toLowerCase()}%" }
-            }
-
-            val total = query.count()
-            val data = BudgetEntity.wrapRows(query).map { it.toResponse() }
-
-            val sumByType = data.groupBy { it.type.name }.mapValues { it.value.sumOf { v -> v.amount } }
-
-            return@transaction BudgetYearStatsResponse(
-                total = total,
-                totalByType = sumByType,
-                items = data
-            )
+        val records = transaction {
+            BudgetEntity.find { BudgetTable.year eq param.year }
+                .orderBy(BudgetTable.month to SortOrder.ASC, BudgetTable.amount to SortOrder.DESC)
+                .limit(param.limit, param.offset)
+                .map { it.toResponse() }
         }
+
+        val total = transaction {
+            BudgetEntity.find { BudgetTable.year eq param.year }.count()
+        }
+
+        val totalByType = transaction {
+            BudgetEntity.find { BudgetTable.year eq param.year }
+                .groupBy { it.type.name }
+                .mapValues { it.value.sumOf { record -> record.amount } }
+        }
+
+        return@withContext BudgetYearStatsResponse(total, totalByType, records)
     }
-//    suspend fun getYearStats(param: BudgetYearParam): BudgetYearStatsResponse = withContext(Dispatchers.IO) {
-//        transaction {
-//            val query = BudgetTable
-//                .select { BudgetTable.year eq param.year }
-//                .limit(param.limit, param.offset)
-//
-//            val total = query.count()
-//            val data = BudgetEntity.wrapRows(query).map { it.toResponse() }
-//
-//            val sumByType = data.groupBy { it.type.name }.mapValues { it.value.sumOf { v -> v.amount } }
-//
-//            return@transaction BudgetYearStatsResponse(
-//                total = total,
-//                totalByType = sumByType,
-//                items = data
-//            )
-//        }
-//    }
 }
